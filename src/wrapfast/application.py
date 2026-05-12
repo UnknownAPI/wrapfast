@@ -1,7 +1,9 @@
-from src.presentation import PresentationCodec
-from src.session import Session
-from src.transport import HttpRequest, Transport
 from dataclasses import dataclass
+
+from .presentation import PresentationCodec
+from .session import Session
+from .transport import HttpRequest, Transport
+
 
 @dataclass
 class Endpoint[T_Request, T_Response]:
@@ -13,7 +15,11 @@ class Endpoint[T_Request, T_Response]:
 
 class HttpClient:
     def __init__(
-        self, base_url:str, transport: Transport, session: Session, presentation_codec: PresentationCodec
+        self,
+        base_url: str,
+        transport: Transport,
+        session: Session,
+        presentation_codec: PresentationCodec,
     ) -> None:
         self._base_url = base_url
         self._transport = transport
@@ -25,7 +31,9 @@ class HttpClient:
     ) -> T_Response:
         http_req = HttpRequest(
             method=endpoint.method,
-            url=f"{self._base_url}{endpoint.path}" if not endpoint.path.startswith("/") else endpoint.path,
+            url=f"{self._base_url}{endpoint.path}"
+            if not endpoint.path.startswith("/")
+            else endpoint.path,
             headers={"Content-Type": self._presentation_codec.content_type},
             data=self._presentation_codec.encode(request),
         )

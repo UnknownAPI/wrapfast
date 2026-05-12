@@ -30,7 +30,7 @@ from dataclasses import dataclass
 
 import requests
 
-from src import (
+from wrapfast import (
     Endpoint,
     HttpClient,
     HttpRequest,
@@ -115,10 +115,10 @@ user = client.send(GET_USER, None)  # User: types follow you, not the wire
 
 | Path | Role |
 |------|------|
-| `src/` | Library: `HttpClient`, protocols, `Endpoint`. |
+| `src/wrapfast/` | Installable package: `HttpClient`, protocols, `Endpoint`. |
 | `examples/dummyjson_requests.py` | End‑to‑end sample: `requests`, Pydantic, bearer **session** (login, `/auth/me`, refresh). |
 
-When hacking in this repo, import from the `src` package (see `pyproject.toml`). A fuller DummyJSON walkthrough lives in **`examples/dummyjson_requests.py`**.
+After `pip install wrapfast`, use `import wrapfast`. From a clone without installing, add the `src` directory to `PYTHONPATH` (see **`examples/dummyjson_requests.py`**). A fuller DummyJSON walkthrough lives in that example.
 
 ---
 

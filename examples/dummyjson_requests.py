@@ -22,10 +22,10 @@ from urllib.parse import urlparse
 import requests
 from pydantic import BaseModel, ConfigDict
 
-# Repo layout: examples/ next to src/
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+# Repo layout: package lives under src/wrapfast/ (add ``src`` so ``import wrapfast`` works without install).
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from src import Endpoint, HttpClient, HttpRequest, HttpResponse
+from wrapfast import Endpoint, HttpClient, HttpRequest, HttpResponse
 
 
 def _url_resource_path(url: str) -> str:

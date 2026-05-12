@@ -1,4 +1,5 @@
-from typing import Protocol, Any
+from typing import Any, Protocol
+
 
 class PresentationCodec(Protocol):
     content_type: str

@@ -1,12 +1,41 @@
+[build-system]
+requires = ["hatchling>=1.26.0"]
+build-backend = "hatchling.build"
+
 [project]
 name = "wrapfast"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.0.2"
+description = "Composable HTTP API client: pluggable transport, session, and presentation layers for maintainable wrappers."
 readme = "README.md"
 requires-python = ">=3.13"
 license = "0BSD"
 license-files = ["LICENSE"]
+authors = [{ name = "wrapfast contributors" }]
+keywords = [
+    "api",
+    "api-client",
+    "http",
+    "http-client",
+    "rest",
+    "typing",
+    "wrapper",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
 dependencies = []
 
+[project.urls]
+Repository = "https://github.com/UnknownAPI/wrapfast"
+Issues = "https://github.com/UnknownAPI/wrapfast/issues"
+
 [project.optional-dependencies]
-examples = ["pydantic", "requests"]
+examples = ["pydantic>=2", "requests>=2.31"]
