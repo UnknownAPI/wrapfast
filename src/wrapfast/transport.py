@@ -1,19 +1,20 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Mapping
 
 
 @dataclass
 class HttpRequest:
     method: str
     url: str
-    headers: dict[str, str]
+    headers: Mapping[str, str]
     data: bytes
 
 
 @dataclass
 class HttpResponse:
     status_code: int
-    headers: dict[str, str]
+    headers: Mapping[str, str]
     data: bytes
 
 
