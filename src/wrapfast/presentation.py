@@ -1,8 +1,13 @@
-from typing import Any, Protocol
+from abc import ABC, abstractmethod
+from typing import Any
 
 
-class PresentationCodec(Protocol):
-    content_type: str
+class PresentationCodec(ABC):
+    @abstractmethod
+    def get_content_type(self) -> str: ...
 
+    @abstractmethod
     def encode(self, obj: Any) -> bytes: ...
-    def decode[T](self, data: bytes, target: type[T]) -> T: ...
+
+    @abstractmethod
+    def decode(self, data: bytes, target: type) -> Any: ...

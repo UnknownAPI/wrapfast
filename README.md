@@ -74,7 +74,8 @@ class BearerSession(Session):
 
 
 class PydanticJsonCodec(PresentationCodec):
-    content_type = "application/json"
+    def get_content_type(self) -> str:
+        return "application/json"
 
     def encode(self, obj: object) -> bytes:
         if obj is None:
@@ -102,6 +103,8 @@ user = client.send(GET_USER, None)  # User: validated model, not raw JSON
 Add **`pydantic`** and **`requests`** to your environment when using this pattern (also bundled as the optional **`examples`** extra in this repo).
 
 **`HttpClient`** is the spine: it does not know *which* HTTP library you use, *how* you authenticate, or *how* bodies are serialised. Those are **policies** you inject. Your API surface becomes a set of **`Endpoint`** values plus **Pydantic models** (or other types you teach the codec)—easier to read, review, and reuse.
+
+`PresentationCodec`, `Transport`, `Session`, and async `AsyncTransport` are abstract bases (`abc.ABC`). Codecs implement `get_content_type()` (used for the outbound `Content-Type` header), `encode`, and `decode`; transports and sessions implement the `send` / `wrap_request` / `unwrap_response` hooks shown above.
 
 ---
 

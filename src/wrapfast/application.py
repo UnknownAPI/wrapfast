@@ -34,7 +34,7 @@ class HttpClient:
             url=f"{self._base_url}{endpoint.path}"
             if not endpoint.path.startswith("/")
             else endpoint.path,
-            headers={"Content-Type": self._presentation_codec.content_type},
+            headers={"Content-Type": self._presentation_codec.get_content_type()},
             data=self._presentation_codec.encode(request),
         )
         http_req = self._session.wrap_request(http_req)

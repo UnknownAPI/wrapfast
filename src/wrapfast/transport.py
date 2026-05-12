@@ -1,5 +1,5 @@
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Protocol
 
 
 @dataclass
@@ -17,11 +17,11 @@ class HttpResponse:
     data: bytes
 
 
-class Transport(Protocol):
-    def send(self, request: HttpRequest) -> HttpResponse:
-        ...
+class Transport(ABC):
+    @abstractmethod
+    def send(self, request: HttpRequest) -> HttpResponse: ...
 
 
-class AsyncTransport(Protocol):
-    async def send(self, request: HttpRequest) -> HttpResponse:
-        ...
+class AsyncTransport(ABC):
+    @abstractmethod
+    async def send(self, request: HttpRequest) -> HttpResponse: ...

@@ -204,8 +204,8 @@ wheels = [
 
 [[package]]
 name = "wrapfast"
-version = "0.1.0"
-source = { virtual = "." }
+version = "0.0.2"
+source = { editable = "." }
 
 [package.optional-dependencies]
 examples = [
@@ -215,7 +215,7 @@ examples = [
 
 [package.metadata]
 requires-dist = [
-    { name = "pydantic", marker = "extra == 'examples'" },
-    { name = "requests", marker = "extra == 'examples'" },
+    { name = "pydantic", marker = "extra == 'examples'", specifier = ">=2" },
+    { name = "requests", marker = "extra == 'examples'", specifier = ">=2.31" },
 ]
 provides-extras = ["examples"]

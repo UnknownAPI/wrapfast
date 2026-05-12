@@ -25,7 +25,15 @@ from pydantic import BaseModel, ConfigDict
 # Repo layout: package lives under src/wrapfast/ (add ``src`` so ``import wrapfast`` works without install).
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from wrapfast import Endpoint, HttpClient, HttpRequest, HttpResponse
+from wrapfast import (
+    Endpoint,
+    HttpClient,
+    HttpRequest,
+    HttpResponse,
+    PresentationCodec,
+    Session,
+    Transport,
+)
 
 
 def _url_resource_path(url: str) -> str:
@@ -33,7 +41,7 @@ def _url_resource_path(url: str) -> str:
     return urlparse(url).path.lstrip("/")
 
 
-class RequestsTransport:
+class RequestsTransport(Transport):
     """Bridge wrapfast's HttpRequest/HttpResponse to the `requests` library."""
 
     def __init__(self, timeout: float = 30.0) -> None:
@@ -114,7 +122,7 @@ class Product(BaseModel):
     brand: str | None = None
 
 
-class DummyJsonBearerSession:
+class DummyJsonBearerSession(Session):
     """Session that attaches a bearer access token to outbound requests.
 
     DummyJSON expects ``Authorization: Bearer <accessToken>`` for endpoints such as
@@ -172,10 +180,11 @@ class DummyJsonBearerSession:
         return response
 
 
-class PydanticJsonCodec:
+class PydanticJsonCodec(PresentationCodec):
     """JSON codec using Pydantic ``model_dump_json`` / ``model_validate_json``."""
 
-    content_type = "application/json"
+    def get_content_type(self) -> str:
+        return "application/json"
 
     def encode(self, obj: object) -> bytes:
         if obj is None:
