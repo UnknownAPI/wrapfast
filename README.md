@@ -22,13 +22,11 @@ That split is the point: **organisation** (each type has one job), **good practi
 
 ## Code that shows the shape
 
-This is intentionally dense: it is the whole architecture on one screen.
+This is intentionally dense: it is the whole architecture on one screen, using **Pydantic** for request/response models and JSON.
 
 ```python
-import json
-from dataclasses import dataclass
-
 import requests
+from pydantic import BaseModel, ConfigDict
 
 from wrapfast import (
     Endpoint,
@@ -40,11 +38,13 @@ from wrapfast import (
     Transport,
 )
 
-# Typed operation: "GET /users/1" → User (no body on the wire for this GET)
-@dataclass
-class User:
+
+class User(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     id: int
     name: str
+
 
 GET_USER = Endpoint("GET", "users/1", type(None), User)
 
@@ -73,32 +73,35 @@ class BearerSession(Session):
         return response  # e.g. 401 → refresh token, logging, metrics
 
 
-class JsonCodec(PresentationCodec):
-    """Tiny stand-in; use Pydantic in production (see examples/)."""
-
+class PydanticJsonCodec(PresentationCodec):
     content_type = "application/json"
 
     def encode(self, obj: object) -> bytes:
-        return b"" if obj is None else json.dumps(obj).encode()
+        if obj is None:
+            return b""
+        if isinstance(obj, BaseModel):
+            return obj.model_dump_json(exclude_none=True).encode("utf-8")
+        raise TypeError("encode expects None or a Pydantic model")
 
     def decode(self, data: bytes, target: type):
-        d = json.loads(data.decode())
-        if target is User:
-            return User(id=d["id"], name=d["name"])
-        raise TypeError(target)
+        if not isinstance(target, type) or not issubclass(target, BaseModel):
+            raise TypeError("decode target must be a BaseModel subclass")
+        return target.model_validate_json(data)
 
 
 client = HttpClient(
     base_url="https://api.example.com/",
     transport=RequestsTransport(),
     session=BearerSession("<access token>"),
-    presentation_codec=JsonCodec(),
+    presentation_codec=PydanticJsonCodec(),
 )
 
-user = client.send(GET_USER, None)  # User: types follow you, not the wire
+user = client.send(GET_USER, None)  # User: validated model, not raw JSON
 ```
 
-**`HttpClient`** is the spine: it does not know *which* HTTP library you use, *how* you authenticate, or *how* bodies are serialised. Those are **policies** you inject. Your API surface becomes a set of **`Endpoint`** values plus plain data types—easier to read, review, and reuse.
+Add **`pydantic`** and **`requests`** to your environment when using this pattern (also bundled as the optional **`examples`** extra in this repo).
+
+**`HttpClient`** is the spine: it does not know *which* HTTP library you use, *how* you authenticate, or *how* bodies are serialised. Those are **policies** you inject. Your API surface becomes a set of **`Endpoint`** values plus **Pydantic models** (or other types you teach the codec)—easier to read, review, and reuse.
 
 ---
 
@@ -124,7 +127,7 @@ After `pip install wrapfast`, use `import wrapfast`. From a clone without instal
 
 ## Requirements
 
-Python **3.13+** (see `pyproject.toml`). Runtime dependencies are intentionally minimal; pair the library with **your** transport and codec (e.g. `requests` + Pydantic via the `examples` optional extra).
+Python **3.13+** (see `pyproject.toml`). The library itself has no required runtime dependencies; pair it with **your** transport and codec. The README snippet and **`examples`** extra use **Pydantic** and **`requests`**.
 
 ---
 
