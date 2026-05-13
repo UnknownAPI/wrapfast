@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "wrapfast"
-version = "0.0.2"
+version = "0.0.3"
 description = "Composable HTTP API client: pluggable transport, session, and presentation layers for maintainable wrappers."
 readme = "README.md"
 requires-python = ">=3.13"
