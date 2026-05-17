@@ -1,11 +1,12 @@
+# session.py
 from abc import ABC, abstractmethod
 
-from .transport import HttpRequest, HttpResponse
 
-
-class Session(ABC):
-    @abstractmethod
-    def wrap_request(self, request: HttpRequest) -> HttpRequest: ...
+class Session[T_Req, T_Resp](ABC):
+    """Domain-level session concerns: auth on requests, error-checking on responses."""
 
     @abstractmethod
-    def unwrap_response(self, response: HttpResponse) -> HttpResponse: ...
+    def wrap(self, request: T_Req) -> T_Req: ...
+
+    @abstractmethod
+    def unwrap(self, response: T_Resp) -> T_Resp: ...

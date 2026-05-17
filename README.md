@@ -11,10 +11,10 @@ It exists to promote **good practice**, **clear organisation**, and **real flexi
 | Piece | Responsibility |
 |--------|----------------|
 | **`Transport`** | How a request leaves your process and bytes come back (`requests`, `httpx`, a mock, async later). |
-| **`Session`** | Cross‑cutting behaviour around the wire call: tokens, headers, cookies, tracing, optional response handling. |
-| **`PresentationCodec`** | How typed domain objects become bytes and back (JSON + Pydantic, `msgspec`, plain `dict`, …). |
-| **`Endpoint`** | A named operation: HTTP method, path, and the request/response types you expect. |
-| **`HttpClient`** | The thin orchestrator: build `HttpRequest` → session → transport → session → decode. |
+| **`Presentation`** | How domain objects become `HttpRequest` (encode), and `HttpResponse` becomes intermediate objects (decode), and intermediate objects become final domain models (narrow). |
+| **`Session`** | Cross-cutting behaviour on the intermediate types (e.g. `JsonRequest`, `JsonResponse`): tokens, headers, error-checking. |
+| **`Endpoint`** | A named operation: HTTP method, path, and the response type you expect. |
+| **`HttpClient`** | The orchestrator: `Session.wrap` → `Presentation.encode` → `Transport.send` → `Presentation.decode` → `Session.unwrap` → `Presentation.narrow`. |
 
 That split is the point: **organisation** (each type has one job), **good practice** (test transports and codecs without the network; test sessions without JSON details), and **flexibility** (change transport or codec without rewriting your endpoints).
 
@@ -25,7 +25,10 @@ That split is the point: **organisation** (each type has one job), **good practi
 This is intentionally dense: it is the whole architecture on one screen, using **Pydantic** for request/response models and JSON.
 
 ```python
+import json
 import requests
+from dataclasses import dataclass
+from typing import Any
 from pydantic import BaseModel, ConfigDict
 
 from wrapfast import (
@@ -33,21 +36,27 @@ from wrapfast import (
     HttpClient,
     HttpRequest,
     HttpResponse,
-    PresentationCodec,
+    Presentation,
     Session,
     Transport,
 )
 
+@dataclass
+class JsonRequest:
+    headers: dict[str, str]
+    body: dict[str, Any]
+
+@dataclass
+class JsonResponse:
+    status: int
+    body: Any
 
 class User(BaseModel):
     model_config = ConfigDict(extra="ignore")
-
     id: int
     name: str
 
-
-GET_USER = Endpoint("GET", "users/1", type(None), User)
-
+GET_USER = Endpoint("GET", "users/1", User)
 
 class RequestsTransport(Transport):
     def send(self, request: HttpRequest) -> HttpResponse:
@@ -58,53 +67,58 @@ class RequestsTransport(Transport):
             data=request.data or None,
             timeout=30,
         )
-        return HttpResponse(r.status_code, {k.lower(): v for k, v in r.headers.items()}, r.content)
+        return HttpResponse(
+            status_code=r.status_code, 
+            headers={k.lower(): v for k, v in r.headers.items()}, 
+            data=r.content
+        )
 
-
-class BearerSession(Session):
+class BearerSession(Session[JsonRequest, JsonResponse]):
     def __init__(self, token: str) -> None:
         self._token = token
 
-    def wrap_request(self, request: HttpRequest) -> HttpRequest:
-        h = {**request.headers, "authorization": f"Bearer {self._token}"}
-        return HttpRequest(request.method, request.url, h, request.data)
+    def wrap(self, request: JsonRequest) -> JsonRequest:
+        request.headers["Authorization"] = f"Bearer {self._token}"
+        return request
 
-    def unwrap_response(self, response: HttpResponse) -> HttpResponse:
-        return response  # e.g. 401 → refresh token, logging, metrics
+    def unwrap(self, response: JsonResponse) -> JsonResponse:
+        if response.status == 401:
+            raise RuntimeError("Unauthorized")
+        return response
 
+class PydanticPresentation(Presentation[JsonRequest, JsonResponse]):
+    def encode(self, request: JsonRequest, *, method: str, url: str) -> HttpRequest:
+        return HttpRequest(
+            method=method,
+            url=url,
+            headers={"Content-Type": "application/json", **request.headers},
+            data=json.dumps(request.body).encode("utf-8") if request.body else b"",
+        )
 
-class PydanticJsonCodec(PresentationCodec):
-    def get_content_type(self) -> str:
-        return "application/json"
+    def decode(self, response: HttpResponse) -> JsonResponse:
+        body = json.loads(response.data) if response.data else {}
+        return JsonResponse(status=response.status_code, body=body)
 
-    def encode(self, obj: object) -> bytes:
-        if obj is None:
-            return b""
-        if isinstance(obj, BaseModel):
-            return obj.model_dump_json(exclude_none=True).encode("utf-8")
-        raise TypeError("encode expects None or a Pydantic model")
+    def narrow[T](self, response: JsonResponse, target: type[T]) -> T:
+        if issubclass(target, BaseModel):
+            return target.model_validate(response.body)
+        raise TypeError("target must be a BaseModel subclass")
 
-    def decode(self, data: bytes, target: type):
-        if not isinstance(target, type) or not issubclass(target, BaseModel):
-            raise TypeError("decode target must be a BaseModel subclass")
-        return target.model_validate_json(data)
-
-
-client = HttpClient(
+client = HttpClient[JsonRequest, JsonResponse](
     base_url="https://api.example.com/",
     transport=RequestsTransport(),
     session=BearerSession("<access token>"),
-    presentation_codec=PydanticJsonCodec(),
+    presentation=PydanticPresentation(),
 )
 
-user = client.send(GET_USER, None)  # User: validated model, not raw JSON
+user = client.send(GET_USER, JsonRequest(headers={}, body={}))  # User: validated model
 ```
 
 Add **`pydantic`** and **`requests`** to your environment when using this pattern (also bundled as the optional **`examples`** extra in this repo).
 
 **`HttpClient`** is the spine: it does not know *which* HTTP library you use, *how* you authenticate, or *how* bodies are serialised. Those are **policies** you inject. Your API surface becomes a set of **`Endpoint`** values plus **Pydantic models** (or other types you teach the codec)—easier to read, review, and reuse.
 
-`PresentationCodec`, `Transport`, `Session`, and async `AsyncTransport` are abstract bases (`abc.ABC`). Codecs implement `get_content_type()` (used for the outbound `Content-Type` header), `encode`, and `decode`; transports and sessions implement the `send` / `wrap_request` / `unwrap_response` hooks shown above.
+`Presentation`, `Transport`, and `Session` are abstract bases (`abc.ABC`). Codecs implement `encode`, `decode`, and `narrow`; transports and sessions implement the `send` / `wrap` / `unwrap` hooks shown above.
 
 ---
 
@@ -112,14 +126,14 @@ Add **`pydantic`** and **`requests`** to your environment when using this patter
 
 - **Tests**: fake `Transport` returns canned `HttpResponse`; no sockets.
 - **Auth**: evolve `Session` (login, refresh, header rules) without touching codecs.
-- **Formats**: swap JSON for another codec at the edge without renaming your domain models’ usage sites.
+- **Formats**: swap JSON for another presentation at the edge without renaming your domain models’ usage sites.
 - **Readability**: endpoints read like a table of operations; the “how we call HTTP” story lives in a few small classes.
 
 ---
 
 ## Project layout & example
 
-| Path | Role |
+| Path | Path Role |
 |------|------|
 | `src/wrapfast/` | Installable package: `HttpClient`, protocols, `Endpoint`. |
 | `examples/dummyjson_requests.py` | End‑to‑end sample: `requests`, Pydantic, bearer **session** (login, `/auth/me`, refresh). |
